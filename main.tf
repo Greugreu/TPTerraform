@@ -52,6 +52,7 @@ resource "azurerm_postgresql_server" "postgresql-server" {
   administrator_login_password = data.azurerm_key_vault_secret.postgres-password.value
   ssl_enforcement_enabled      = false
   ssl_minimal_tls_version_enforced = "TLSEnforcementDisabled"
+  public_network_access_enabled = true
 }
 
 resource "azurerm_postgresql_firewall_rule" "pgsql-firewall-rule" {
@@ -84,6 +85,18 @@ resource "azurerm_linux_web_app" "AzurermWebApp" {
       node_version = "16-lts"
     }
   }
+
+  app_settings = {
+    DB_HOST: azurerm_postgresql_server.postgresql-server.fqdn
+    DB_USERNAME = "${data.azurerm_key_vault_secret.postgres-username.value}@${azurerm_postgresql_server.postgresql-server.name}"
+    DB_PASSWORD: data.azurerm_key_vault_secret.postgres-password.value
+    DB_DATABASE: azurerm_postgresql_database.postgresql-database.name
+    DB_DAILECT: "postgres"
+    DB_PORT: 5432
+    DATABASE_URL: "postgres://${data.azurerm_key_vault_secret.postgres-username.value}:${data.azurerm_key_vault_secret.postgres-password.value}@postgres:5432/${azurerm_postgresql_database.postgresql-database.name}"
+    NODE_ENV: "development"
+    PORT: 3000
+  }
 }
 
 ###############
@@ -111,42 +124,6 @@ resource "azurerm_container_group" "PGAdmin" {
     environment_variables = {
       "PGADMIN_DEFAULT_EMAIL" = data.azurerm_key_vault_secret.pgadmin-username.value,
       "PGADMIN_DEFAULT_PASSWORD" = data.azurerm_key_vault_secret.pgadmin-password.value
-    }
-  }
-}
-
-###############
-# API : Container Instance
-###############
-resource "azurerm_container_group" "api" {
-  name                = "aci-api-${var.projectName}${var.environment_suffix}"
-  resource_group_name = data.azurerm_resource_group.rg-vclarke.name
-  location            = data.azurerm_resource_group.rg-vclarke.location
-  ip_address_type     = "None"
-  dns_name_label      = "aci-api-${var.projectName}${var.environment_suffix}"
-  os_type             = "Linux"
-
-  container {
-    name   = "nodeapi"
-    image  = "greugreu/nodeapi:1.0.4"
-    cpu    = "0.5"
-    memory = "1.5"
-
-    ports {
-      port     = 3000
-      protocol = "TCP"
-    }
-
-    environment_variables = {
-      DB_HOST: azurerm_postgresql_server.postgresql-server.fqdn
-      DB_USERNAME = "${data.azurerm_key_vault_secret.postgres-username.value}@${azurerm_postgresql_server.postgresql-server.name}"
-      DB_PASSWORD: data.azurerm_key_vault_secret.postgres-password.value
-      DB_DATABASE: azurerm_postgresql_database.postgresql-database.name
-      DB_DAILECT: "postgres"
-      DB_PORT: 5432
-      DATABASE_URL: "postgres://${data.azurerm_key_vault_secret.postgres-username.value}:${data.azurerm_key_vault_secret.postgres-password.value}@postgres:5432/${azurerm_postgresql_database.postgresql-database.name}"
-      NODE_ENV: "development"
-      PORT: 3000
     }
   }
 }
