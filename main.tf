@@ -89,7 +89,7 @@ resource "azurerm_linux_web_app" "AzurermWebApp" {
 ###############
 # PGAdmin : Container Instance
 ###############
-resource "azurerm_container_group" "rabbitmq" {
+resource "azurerm_container_group" "PGAdmin" {
   name                = "aci-pgadmin-${var.projectName}${var.environment_suffix}"
   resource_group_name = data.azurerm_resource_group.rg-vclarke.name
   location            = data.azurerm_resource_group.rg-vclarke.location
@@ -104,12 +104,7 @@ resource "azurerm_container_group" "rabbitmq" {
     memory = "1.5"
 
     ports {
-      port     = 5672
-      protocol = "TCP"
-    }
-
-    ports {
-      port     = 15672
+      port     = 80
       protocol = "TCP"
     }
 
@@ -143,14 +138,14 @@ resource "azurerm_container_group" "api" {
     }
 
     environment_variables = {
-      DB_HOST: postgres
+      DB_HOST: azurerm_postgresql_server.postgresql-server.fqdn
       DB_USERNAME = "${data.azurerm_key_vault_secret.postgres-username.value}@${azurerm_postgresql_server.postgresql-server.name}"
-      DB_PASSWORD: data.azurerm_key_vault_secret.postgres-password
-      DB_DATABASE: 'db'
-      DB_DAILECT: 'postgres'
+      DB_PASSWORD: data.azurerm_key_vault_secret.postgres-password.value
+      DB_DATABASE: azurerm_postgresql_database.postgresql-database.name
+      DB_DAILECT: "postgres"
       DB_PORT: 5432
-      DATABASE_URL: "postgres://${data.azurerm_key_vault_secret.postgres-username}:${data.azurerm_key_vault_secret.postgres-password}@postgres:5432/db"
-      NODE_ENV: development
+      DATABASE_URL: "postgres://${data.azurerm_key_vault_secret.postgres-username.value}:${data.azurerm_key_vault_secret.postgres-password.value}@postgres:5432/${azurerm_postgresql_database.postgresql-database.name}"
+      NODE_ENV: "development"
       PORT: 3000
     }
   }
